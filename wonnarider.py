@@ -1,28 +1,35 @@
+# !/usr/bin/python3
+# -*- coding: utf-8 -*- #
 
-
+from datetime import datetime, timedelta, time
 class Wonnarider(object):
-    def __init__(self, chat_id):
+    def __init__(self, chat_id, uid=None):
         self.chat_id = chat_id
-        self.ride_type = None
+        self.uid = uid
+        self.ride_type = 'bicycle'
         self.start_time = None
-        self.exp_time = None
+        self.exp_time = timedelta(hours=1)
         self.location = None
-        self.radius = None
+        self.radius = 20
+        self.prev_command = None
+
+    def startSearch(self):
+        self.start_time = datetime.now()
+
+    def tagName(self):
+        if self.uid:
+            return '@'+self.uid
+        else:
+            return str(self.chat_id)
 
     def quitQueue(self):
-        pass
-
-    def findWonnariders(self):
-        pass
-
-    def sendWonnariders(self):
         pass
 
     def setRideType(self, rt):
         self.ride_type = rt
 
-    def setLocation(self):
-        pass
+    def setLocation(self, l):
+        self.location = l
 
     def setRadius(self, r):
         self.radius = r
@@ -31,4 +38,4 @@ class Wonnarider(object):
         pass
 
     def reenterQueue(self):
-        pass
+        self.startSearch()
