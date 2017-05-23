@@ -41,7 +41,8 @@ def handle(msg):
 
     if content_type == 'location':
         handleLocation(getUserById(chat_id),
-                       Point(longitude=msg['location']['longitude'], latitude=msg['location']['latitude']))
+                       Point(longitude=msg['location']['longitude'], latitude=msg['location']['latitude']),
+                       bot)
 
 TOKEN = sys.argv[1]  # get token from command-line
 
@@ -57,12 +58,12 @@ while 1:
     for u in active_wonnariders:
         if u.start_time + u.exp_time < datetime.now():
             active_wonnariders.remove(u)
+            if not u.save_location:
+                u.setLocation(None)
             semiacive_wonnariders.append(u)
     for u in semiacive_wonnariders:
         if u.last_request + timedelta(days=1) < datetime.now():
             semiacive_wonnariders.remove(u)
-            if not u.save_location:
-                u.setLocation(None)
             users = pickle.load(open('users.pickle', 'r+b'))
             for us in users:
                 if us.chat_id == u.chat_id:

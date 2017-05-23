@@ -1,17 +1,18 @@
 # !/usr/bin/python3
 # -*- coding: utf-8 -*- #
 
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
+from telepot.namedtuple import KeyboardButton, ReplyKeyboardMarkup
 
 class Wonnarider(object):
     def __init__(self, chat_id, uid=None):
         self.chat_id = chat_id
         self.uid = uid
-        self.ride_type = 'bicycle'
+        self.ride_type = None
         self.start_time = None
-        self.exp_time = timedelta(hours=1)
+        self.exp_time = None
         self.location = None
-        self.radius = 20
+        self.radius = None
         self.save_location = False
         self.prev_command = None
         self.last_request = datetime.now()
@@ -37,8 +38,8 @@ class Wonnarider(object):
     def setRadius(self, r):
         self.radius = r
 
-    def setExpTime(self):
-        pass
+    def setExpTime(self, h, m=0):
+        self.exp_time = timedelta(hours=h, minutes=m)
 
     def reenterQueue(self):
         self.startSearch()
@@ -52,6 +53,18 @@ class Wonnarider(object):
     def isActive(self):
         return datetime.now() > self.start_time + self.exp_time
 
+    def unsettedParams(self):
+        keys = []
+        if not self.ride_type:
+            keys.append([KeyboardButton(text='/set_category')])
+        if not self.radius:
+            keys.append([KeyboardButton(text='/set_radius')])
+        if not self.exp_time:
+            keys.append([KeyboardButton(text='/set_waiting_time')])
+        if not keys:
+            return ReplyKeyboardMarkup([[KeyboardButton(text='/wonnaride')]])
+        return ReplyKeyboardMarkup(keyboard=keys)
+
     def about(self):
         retstr = ''
         retstr += 'Username: ' + ('None' if not self.uid else self.uid)
@@ -62,3 +75,4 @@ class Wonnarider(object):
         retstr += '\nTime in queue: ' + str(self.exp_time)
         retstr += '\nLocation: ' + str(self.location)
         return retstr
+
