@@ -6,12 +6,14 @@ import time
 import pickle
 from datetime import datetime, timedelta
 
+from pprint import pprint
 import telepot
 from geopy import Point
 from telepot.loop import MessageLoop
 
 from wonnaride_core.handlers import command_handler, getUserById,\
-    handleLocation, twoStepCommandHandler, user_init, active_wonnariders, semiacive_wonnariders
+    handleLocation, twoStepCommandHandler, user_init
+from wonnaride_core.handlers import active_wonnariders, semiacive_wonnariders
 
 
 def getCommand(msg):
@@ -55,9 +57,15 @@ while 1:
     time.sleep(9.5)
 
     # Checking time expiration
+
+    pprint(active_wonnariders)
+    pprint("----------------")
+    pprint(semiacive_wonnariders)
+
     for u in active_wonnariders:
         if u.start_time + u.exp_time < datetime.now():
             active_wonnariders.remove(u)
+            bot.sendMessage(u.chat_id, "You time expire", reply_markup=u.unsettedParams())
             if not u.save_location:
                 u.setLocation(None)
             semiacive_wonnariders.append(u)

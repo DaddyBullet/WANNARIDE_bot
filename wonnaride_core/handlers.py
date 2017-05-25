@@ -12,7 +12,8 @@ from telepot.namedtuple import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboar
 active_wonnariders = []
 semiacive_wonnariders = []
 ride_types = ['bicycle', 'fix', 'bmx', 'roller blades', 'skate', 'longboard']
-command_list = ['/wonnaride', '/settings', '/set_radius', '/set_category', '/test']
+command_list = ['/wonnaride', '/settings', '/set_radius', '/set_category', '/set_waiting_time',
+                '/stop_searching', '/test']
 userspath = 'users.pickle'
 
 init_msg = 'Hi! *Some about text...* \nTo start using - configure next settings...'
@@ -56,7 +57,7 @@ def command_handler(bot, u, cm):
 
     elif cm == '/set_radius':
         u.setPrevCommand(cm)
-        bot.sendMessage(u.chat_id, "Set choose radius in kilometers (1 - 50)")
+        bot.sendMessage(u.chat_id, "Set choose radius in kilometers (1 - 50)", reply_markup=ReplyKeyboardRemove())
 
     elif cm == '/set_waiting_time':
         u.setPrevCommand(cm)
@@ -72,6 +73,15 @@ def command_handler(bot, u, cm):
         bot.sendMessage(u.chat_id, "Select type of your ride", reply_markup=keyboard)
 
         u.setPrevCommand(cm)
+
+    elif cm == '/stop_searching':
+        if u in active_wonnariders:
+            active_wonnariders.remove(u)
+        u.quitQueue()
+        if u not in semiacive_wonnariders:
+            semiacive_wonnariders.append(u)
+
+        bot.sendMessage(u.chat_id, 'Now you not searching', reply_markup=u.unsettedParams())
 
     elif cm == '/test':
         bot.sendMessage(u.chat_id, u.tagName())
@@ -97,27 +107,28 @@ def handleLocation(u, l, bot):
     u.setLocation(l)
     pprint(l)
     if u.prev_command == '/wonnaride':
-        u.startSearch()
-        nearbyRiders = []
-        # TODO: Search depend on type
-        for r in active_wonnariders:
-            if great_circle(r.location, u.location).km < min(r.radius, u.radius) and r.isActive() and r != u:
-                nearbyRiders.append(r)
         if u in semiacive_wonnariders:
             semiacive_wonnariders.remove(u)
+        # TODO: Search depend on type
+        u.startSearch()
+        nearbyRiders = []
+        for r in active_wonnariders:
+            if great_circle(r.location, u.location).km < min(r.radius, u.radius) and \
+                    r.isActive() and r != u and r.ride_tupe == u.ride_type:
+                nearbyRiders.append(r)
         if u not in active_wonnariders:
             active_wonnariders.append(u)
         if not nearbyRiders:
-            bot.sendMessage(u.chat_id, 'Wait...', reply_markup=ReplyKeyboardRemove())
+            bot.sendMessage(u.chat_id, 'Wait...', reply_markup=u.quitQueueKeyboard())
         elif len(nearbyRiders) == 1:
             text = 'This dude wants to ride too!\n' + nearbyRiders[0].tagName()
-            bot.sendMessage(u.chat_id, text, reply_markup=ReplyKeyboardRemove())
+            bot.sendMessage(u.chat_id, text, reply_markup=u.quitQueueKeyboard())
         else:
             text = 'This guys wants to ride!'
             for r in nearbyRiders:
                 if r.uid:
                     text += '\n' + r.tagName()
-            bot.sendMessage(u.chat_id, text, reply_markup=ReplyKeyboardRemove())
+            bot.sendMessage(u.chat_id, text, reply_markup=u.quitQueueKeyboard())
         for r in nearbyRiders:
             bot.sendMessage(r.chat_id, 'New guy appear and he/she wants to ride!\n'+u.tagName())
 
@@ -127,7 +138,8 @@ def twoStepCommandHandler(bot, u, text):
         # TODO: Some more checks
         r = float(text)
         u.setRadius(r)
-        bot.sendMessage(u.chat_id, 'Search radius was set to: ' + str(u.radius))
+        bot.sendMessage(u.chat_id, 'Search radius was set to: ' + str(u.radius),
+                        reply_markup=u.unsettedParams())
         # u.prev_command = None
     elif u.prev_command == '/set_category':
         if text not in ride_types:

@@ -26,8 +26,12 @@ class Wonnarider(object):
         # else:
         #     return str(self.chat_id)
 
+    def quitQueueKeyboard(self):
+        # self.start_time = None
+        return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text='/stop_searching')]])
+
     def quitQueue(self):
-        pass
+        self.start_time = None
 
     def setRideType(self, rt):
         self.ride_type = rt
@@ -51,7 +55,7 @@ class Wonnarider(object):
         self.last_request = datetime.now()
 
     def isActive(self):
-        return datetime.now() > self.start_time + self.exp_time
+        return datetime.now() < self.start_time + self.exp_time
 
     def unsettedParams(self):
         keys = []
@@ -62,17 +66,17 @@ class Wonnarider(object):
         if not self.exp_time:
             keys.append([KeyboardButton(text='/set_waiting_time')])
         if not keys:
-            return ReplyKeyboardMarkup([[KeyboardButton(text='/wonnaride')]])
+            return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text='/wonnaride')]])
         return ReplyKeyboardMarkup(keyboard=keys)
 
     def about(self):
         retstr = ''
         retstr += 'Username: ' + ('None' if not self.uid else self.uid)
-        retstr += '\nRide type: ' + self.ride_type
-        retstr += '\nRadius: ' + str(self.radius)
+        retstr += '\nRide type: ' + ('None' if not self.ride_type else self.ride_type)
+        retstr += '\nRadius: ' + ('None' if not self.radius else str(self.radius))
         # retstr += '\nTime in queue: ' + str(int(self.exp_time.seconds/3600)) + ':'\
         #           + str(int((self.exp_time.seconds%3600)/60))
-        retstr += '\nTime in queue: ' + str(self.exp_time)
-        retstr += '\nLocation: ' + str(self.location)
+        retstr += '\nTime in queue: ' + ('None' if not self.exp_time else str(self.exp_time))
+        retstr += '\nLocation: ' + ('None' if not self.location else str(self.location))
         return retstr
 
