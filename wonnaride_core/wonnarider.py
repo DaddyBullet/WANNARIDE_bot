@@ -32,12 +32,17 @@ class Wonnarider(object):
 
     def quitQueue(self):
         self.start_time = None
+        if not self.save_location:
+            self.setLocation(None)
 
     def setRideType(self, rt):
         self.ride_type = rt
 
     def setLocation(self, l):
         self.location = l
+
+    def setSaveLoc(self, issave):
+        self.save_location = issave
 
     def setRadius(self, r):
         self.radius = r
@@ -55,6 +60,8 @@ class Wonnarider(object):
         self.last_request = datetime.now()
 
     def isActive(self):
+        if not self.start_time:
+            return False
         return datetime.now() < self.start_time + self.exp_time
 
     def unsettedParams(self):
@@ -66,17 +73,22 @@ class Wonnarider(object):
         if not self.exp_time:
             keys.append([KeyboardButton(text='/set_waiting_time')])
         if not keys:
-            return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text='/wonnaride')]])
+            if not self.isActive():
+                return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text='/wonnaride')]])
+            else:
+                return self.quitQueueKeyboard()
         return ReplyKeyboardMarkup(keyboard=keys)
 
     def about(self):
         retstr = ''
         retstr += 'Username: ' + ('None' if not self.uid else self.uid)
-        retstr += '\nRide type: ' + ('None' if not self.ride_type else self.ride_type)
-        retstr += '\nRadius: ' + ('None' if not self.radius else str(self.radius))
+        retstr += '\nRide type: ' + ('None' if not self.ride_type else self.ride_type) + ' /set_category'
+        retstr += '\nRadius: ' + ('None' if not self.radius else str(self.radius)) + ' /set_radius'
         # retstr += '\nTime in queue: ' + str(int(self.exp_time.seconds/3600)) + ':'\
         #           + str(int((self.exp_time.seconds%3600)/60))
-        retstr += '\nTime in queue: ' + ('None' if not self.exp_time else str(self.exp_time))
+        retstr += '\nTime in queue: ' + ('None' if not self.exp_time else str(self.exp_time)) + ' /set_waiting_time'
         retstr += '\nLocation: ' + ('None' if not self.location else str(self.location))
+        retstr += '\nSave location? ' + ('Yes' if self.save_location else 'No') + ' /save_location'
+
         return retstr
 

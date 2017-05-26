@@ -13,10 +13,18 @@ active_wonnariders = []
 semiacive_wonnariders = []
 ride_types = ['bicycle', 'fix', 'bmx', 'roller blades', 'skate', 'longboard']
 command_list = ['/wonnaride', '/settings', '/set_radius', '/set_category', '/set_waiting_time',
-                '/stop_searching', '/test']
+                '/stop_searching', '/save_location', '/help', '/test']
 userspath = 'users.pickle'
+val_err_msg = 'Please enter correct values'
 
-init_msg = 'Hi! *Some about text...* \nTo start using - configure next settings...'
+init_msg = 'Hi! I want to help you to find some people near to spend your time with them.' \
+           'You can choose the activity, how long can you wait and how far should i look.' \
+           '\nJust click buttons below to configure your settings' \
+           '\nList of all commands: /help\n' \
+           'Your current settings: /settings'
+help_msg = '/wonnaride' + '\n/settings' + '\n/set_radius' + '\n/set_category' + '\n/set_waiting_time' + \
+           '\n/stop_searching' + '\n/save_location' + '\n/help' + \
+           '\nThis section is under development.\nIf you have some questions write it to @bohovis'
 
 def user_init(bot, msg, chat_id):
     uid = None
@@ -46,6 +54,15 @@ def command_handler(bot, u, cm):
         return
     elif cm == '/wonnaride':
         # TODO: Check and request for None Params
+        if u.location:
+            u.setPrevCommand(cm)
+            handleLocation(u, u.location, bot)
+            return
+
+        if not (u.ride_type and u.exp_time and u.radius):
+            bot.sendMessage(u.chat_id, 'Please complete all of the requirement settings',
+                            reply_markup=u.unsettedParams())
+            return
 
         keyboard = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text='Send my location to WONNARIDEbot',
                                                                  request_location=True)]])
@@ -74,6 +91,15 @@ def command_handler(bot, u, cm):
 
         u.setPrevCommand(cm)
 
+    elif cm == '/save_location':
+        keys = [[KeyboardButton(text='Yeah!'), KeyboardButton(text='Nah!')]]
+
+        keyboard = ReplyKeyboardMarkup(keyboard=keys)
+        bot.sendMessage(u.chat_id, "Should i save your location after you quit the queue,"
+                                   " so i wouldn't ask it again", reply_markup=keyboard)
+
+        u.setPrevCommand(cm)
+
     elif cm == '/stop_searching':
         if u in active_wonnariders:
             active_wonnariders.remove(u)
@@ -82,6 +108,9 @@ def command_handler(bot, u, cm):
             semiacive_wonnariders.append(u)
 
         bot.sendMessage(u.chat_id, 'Now you not searching', reply_markup=u.unsettedParams())
+
+    elif cm == '/help':
+        bot.sendMessage(u.chat_id, help_msg, reply_markup=u.unsettedParams())
 
     elif cm == '/test':
         bot.sendMessage(u.chat_id, u.tagName())
@@ -107,9 +136,9 @@ def handleLocation(u, l, bot):
     u.setLocation(l)
     pprint(l)
     if u.prev_command == '/wonnaride':
+        u.setPrevCommand(None)
         if u in semiacive_wonnariders:
             semiacive_wonnariders.remove(u)
-        # TODO: Search depend on type
         u.startSearch()
         nearbyRiders = []
         for r in active_wonnariders:
@@ -136,7 +165,16 @@ def handleLocation(u, l, bot):
 def twoStepCommandHandler(bot, u, text):
     if u.prev_command == '/set_radius':
         # TODO: Some more checks
-        r = float(text)
+        try:
+            r = float(text)
+            if r<1 or r>50:
+                bot.sendMessage(u.chat_id, 'Please, select radius between 1 and 50 kilometers',
+                                reply_markup=u.unsettedParams())
+                return
+        except ValueError:
+            bot.sendMessage(u.chat_id, val_err_msg, reply_markup=u.unsettedParams())
+            u.setPrevCommand(None)
+            return
         u.setRadius(r)
         bot.sendMessage(u.chat_id, 'Search radius was set to: ' + str(u.radius),
                         reply_markup=u.unsettedParams())
@@ -149,16 +187,30 @@ def twoStepCommandHandler(bot, u, text):
             u.setRideType(text)
             bot.sendMessage(u.chat_id, 'You have selected %s' % text, reply_markup=u.unsettedParams())
 
+    elif u.prev_command == '/save_location':
+        if text not in ['Yeah!', 'Nah!']:
+            bot.sendMessage(u.chat_id, 'Please, just hit the button!',
+                            reply_markup=u.unsettedParams())
+            return
+        else:
+            u.setSaveLoc(True if text == 'Yeah!' else False)
+            bot.sendMessage(u.chat_id, 'You have selected %s' % text, reply_markup=u.unsettedParams())
+
     elif u.prev_command == '/set_waiting_time':
         try:
             ftime = float(text)
-            hours = int(ftime)
-            minutes = int((ftime-hours)*60)
-            u.setExpTime(hours, minutes)
-            bot.sendMessage(u.chat_id, 'Your waiting time is: ' + str(u.exp_time), reply_markup=u.unsettedParams())
-        # TODO: except
-        except TypeError:
-            pass
+            if ftime > 3 or ftime < 0:
+                bot.sendMessage(u.chat_id, 'Please, select positive waiting time below 3 hours',
+                                reply_markup=u.unsettedParams())
+                return
+        except ValueError:
+            bot.sendMessage(u.chat_id, val_err_msg, reply_markup=u.unsettedParams())
+            u.setPrevCommand(None)
+            return
+        hours = int(ftime)
+        minutes = int((ftime-hours)*60)
+        u.setExpTime(hours, minutes)
+        bot.sendMessage(u.chat_id, 'Your waiting time is: ' + str(u.exp_time), reply_markup=u.unsettedParams())
 
     u.setPrevCommand(None)
 
