@@ -1,6 +1,7 @@
 # !/usr/bin/python3
 # -*- coding: utf-8 -*- #
 
+import pickle
 from datetime import datetime, timedelta
 from telepot.namedtuple import KeyboardButton, ReplyKeyboardMarkup
 
@@ -74,6 +75,14 @@ class Wonnarider(object):
             keys.append([KeyboardButton(text='/set_waiting_time')])
         if not keys:
             if not self.isActive():
+                users = pickle.load(open('users.pickle', 'r+b'))
+                for u in users:
+                    if u.chat_id == self.chat_id:
+                        users.remove(u)
+                users.append(self)
+                with open('users.pickle', 'w+b') as f:
+                    pickle.dump(users, f)
+                del users
                 return ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text='/wonnaride')]])
             else:
                 return self.quitQueueKeyboard()
