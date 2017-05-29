@@ -143,7 +143,7 @@ def handleLocation(u, l, bot):
         nearbyRiders = []
         for r in active_wonnariders:
             if great_circle(r.location, u.location).km < min(r.radius, u.radius) and \
-                    r.isActive() and r != u and r.ride_tupe == u.ride_type:
+                    r.isActive() and r != u and r.ride_type == u.ride_type:
                 nearbyRiders.append(r)
         if u not in active_wonnariders:
             active_wonnariders.append(u)
