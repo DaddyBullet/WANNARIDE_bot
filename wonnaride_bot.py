@@ -5,11 +5,12 @@ import sys
 import time
 import pickle
 from datetime import datetime, timedelta
+from flask import Flask, request
 
 from pprint import pprint
 import telepot
 from geopy import Point
-from telepot.loop import MessageLoop
+from telepot.loop import MessageLoop, OrderedWebhook
 
 from wonnaride_core.handlers import command_handler, getUserById,\
     handleLocation, twoStepCommandHandler, user_init
@@ -24,7 +25,7 @@ def getCommand(msg):
     return None
 
 
-def handle(msg):
+def on_chat_message(msg):
     content_type, chat_type, chat_id = telepot.glance(msg)
     print(content_type, chat_type, chat_id, msg['from'])
 
@@ -47,37 +48,53 @@ def handle(msg):
                        bot)
 
 TOKEN = sys.argv[1]  # get token from command-line
+PORT = int(sys.argv[2])
+URL = sys.argv[3]
 
+app = Flask(__name__)
 bot = telepot.Bot(TOKEN)
-MessageLoop(bot, handle).run_as_thread()
-print('Listening ...')
+webhook = OrderedWebhook(bot, {'chat': on_chat_message})
+@app.route('/webhook', methods=['GET', 'POST'])
+def pass_update():
+    webhook.feed(request.data)
+    return 'OK'
 
-# Keep the program running.
-while 1:
-    time.sleep(9.5)
-
-    # Checking time expiration
-
-    pprint(active_wonnariders)
-    pprint("----------------")
-    pprint(semiacive_wonnariders)
-
-    for u in active_wonnariders:
-        if u.start_time + u.exp_time < datetime.now():
-            active_wonnariders.remove(u)
-            bot.sendMessage(u.chat_id, "You time expire", reply_markup=u.unsettedParams())
-            if not u.save_location:
-                u.setLocation(None)
-            semiacive_wonnariders.append(u)
-    for u in semiacive_wonnariders:
-        if u.last_request + timedelta(days=1) < datetime.now():
-            semiacive_wonnariders.remove(u)
-            users = pickle.load(open('users.pickle', 'r+b'))
-            for us in users:
-                if us.chat_id == u.chat_id:
-                    users.remove(us)
-            users.append(u)
-            with open('users.pickle', 'w+b') as f:
-                pickle.dump(users, f)
-            del users
-
+if __name__ == '__main__':
+    try:
+        bot.setWebhook(URL)
+    except telepot.exception.TooManyRequestsError:
+        pass
+    webhook.run_as_thread()
+    app.run(port=PORT, debug=True)
+# MessageLoop(bot, handle).run_as_thread()
+# print('Listening ...')
+#
+# # Keep the program running.
+# while 1:
+#     time.sleep(9.5)
+#
+#     # Checking time expiration
+#
+#     pprint(active_wonnariders)
+#     pprint("----------------")
+#     pprint(semiacive_wonnariders)
+#
+#     for u in active_wonnariders:
+#         if u.start_time + u.exp_time < datetime.now():
+#             active_wonnariders.remove(u)
+#             bot.sendMessage(u.chat_id, "You time expire", reply_markup=u.unsettedParams())
+#             if not u.save_location:
+#                 u.setLocation(None)
+#             semiacive_wonnariders.append(u)
+#     for u in semiacive_wonnariders:
+#         if u.last_request + timedelta(days=1) < datetime.now():
+#             semiacive_wonnariders.remove(u)
+#             users = pickle.load(open('users.pickle', 'r+b'))
+#             for us in users:
+#                 if us.chat_id == u.chat_id:
+#                     users.remove(us)
+#             users.append(u)
+#             with open('users.pickle', 'w+b') as f:
+#                 pickle.dump(users, f)
+#             del users
+#
