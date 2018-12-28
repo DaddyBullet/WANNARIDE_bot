@@ -5,7 +5,7 @@ import pickle
 import os.path
 from pprint import pprint
 from geopy.distance import great_circle
-from wonnaride_core.wonnarider import Wonnarider
+from wonnaride_core.wonnarider import Wonnarider, Status, User
 
 from telepot.namedtuple import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 
@@ -26,28 +26,30 @@ help_msg = '/wonnaride' + '\n/settings' + '\n/set_radius' + '\n/set_category' + 
            '\n/stop_searching' + '\n/save_location' + '\n/help' + \
            '\nThis section is under development.\nIf you have some questions write it to @bohovis'
 
-def user_init(bot, msg, chat_id):
+
+def user_init(bot, s, msg, chat_id):
     uid = None
     if 'username' in msg['from']:
         uid = msg['from']['username']
-    nu = Wonnarider(chat_id, uid)
-    if not os.path.exists('users.pickle'):
-        with open('users.pickle', 'w+b') as f:
-            pickle.dump([nu], f)
-    else:
-        users = pickle.load(open('users.pickle', 'r+b'))
-        for u in users:
-            if u.chat_id == chat_id:
-                users.remove(u)
-        users.append(nu)
-        with open('users.pickle', 'w+b') as f:
-            pickle.dump(users, f)
-        del users
+    nu = Wonnarider(s, chat_id, uid)
+    # if not os.path.exists('users.pickle'):
+    #     with open('users.pickle', 'w+b') as f:
+    #         pickle.dump([nu], f)
+    # else:
+    #     users = pickle.load(open('users.pickle', 'r+b'))
+    #     for u in users:
+    #         if u.chat_id == chat_id:
+    #             users.remove(u)
+    #     users.append(nu)
+    #     with open('users.pickle', 'w+b') as f:
+    #         pickle.dump(users, f)
+    #     del users
     bot.sendMessage(chat_id, init_msg, reply_markup=nu.unsettedParams())
-    semiacive_wonnariders.append(nu)
+    nu.db_instance.status = s.query(Status).get(2)
+    s.commit()
 
 
-def command_handler(bot, u, cm):
+def command_handler(bot, s, u, cm):
     if cm not in command_list:
         # TODO: Some help text
         bot.sendMessage(u.chat_id, 'Unknown command\n*Some help text*')
@@ -56,7 +58,7 @@ def command_handler(bot, u, cm):
         # TODO: Check and request for None Params
         if u.location:
             u.setPrevCommand(cm)
-            handleLocation(u, u.location, bot)
+            handleLocation(u, s, u.db_instance.location, bot)
             return
 
         if not (u.ride_type and u.exp_time and u.radius):
@@ -101,11 +103,13 @@ def command_handler(bot, u, cm):
         u.setPrevCommand(cm)
 
     elif cm == '/stop_searching':
-        if u in active_wonnariders:
-            active_wonnariders.remove(u)
+        u.db_instance.status = s.query(Status).get(2)
+        s.commit()
+        # if u in active_wonnariders:
+        #     active_wonnariders.remove(u)
         u.quitQueue()
-        if u not in semiacive_wonnariders:
-            semiacive_wonnariders.append(u)
+        # if u not in semiacive_wonnariders:
+        #     semiacive_wonnariders.append(u)
 
         bot.sendMessage(u.chat_id, 'Now you not searching', reply_markup=u.unsettedParams())
 
@@ -116,37 +120,49 @@ def command_handler(bot, u, cm):
         bot.sendMessage(u.chat_id, u.tagName())
 
 
-def getUserById(id):
-    for u in active_wonnariders:
-        if u.chat_id == id:
-            u.refreshLastRequestTime()
-            return u
-    for u in semiacive_wonnariders:
-        if u.chat_id == id:
-            u.refreshLastRequestTime()
-            return u
-    for u in pickle.load(open(userspath, 'r+b')):
-        if u.chat_id == id:
-            u.refreshLastRequestTime()
-            semiacive_wonnariders.append(u)
-            return u
+def getUserById(s, id):
+    u = Wonnarider(s, db_instance=s.query(User).filter(User.chat_id == id).first())
+    # for u in active_wonnariders:
+    #     if u.chat_id == id:
+    #         u.refreshLastRequestTime()
+    #         return u
+    # for u in semiacive_wonnariders:
+    #     if u.chat_id == id:
+    #         u.refreshLastRequestTime()
+    #         return u
+    # for u in pickle.load(open(userspath, 'r+b')):
+    #     if u.chat_id == id:
+    #         u.refreshLastRequestTime()
+    #         semiacive_wonnariders.append(u)
+    return u
 
 
-def handleLocation(u, l, bot):
+def getActiveRiders(s):
+    riders = []
+    dbriders = s.query(Status).get(1).users
+    for r in dbriders:
+        riders.append(Wonnarider(s, db_instance=r))
+    return riders
+
+
+def handleLocation(u, s, l, bot):
     u.setLocation(l)
     pprint(l)
     if u.prev_command == '/wonnaride':
         u.setPrevCommand(None)
-        if u in semiacive_wonnariders:
-            semiacive_wonnariders.remove(u)
+        u.db_instance.status = s.query(Status).get(1)
+        s.commit()
+        # if u in semiacive_wonnariders:
+        #     semiacive_wonnariders.remove(u)
         u.startSearch()
         nearbyRiders = []
-        for r in active_wonnariders:
-            if great_circle(r.location, u.location).km < min(r.radius, u.radius) and \
-                    r.isActive() and r != u and r.ride_type == u.ride_type:
-                nearbyRiders.append(r)
-        if u not in active_wonnariders:
-            active_wonnariders.append(u)
+        for r in getActiveRiders(s):
+            if r.chat_id != u.chat_id:
+                if great_circle(r.location, u.location).km < min(r.radius, u.radius) and \
+                        r.isActive() and r != u and r.ride_type == u.ride_type:
+                    nearbyRiders.append(r)
+        # if u not in active_wonnariders:
+        #     active_wonnariders.append(u)
         if not nearbyRiders:
             bot.sendMessage(u.chat_id, 'Wait...', reply_markup=u.quitQueueKeyboard())
         elif len(nearbyRiders) == 1:
@@ -162,12 +178,12 @@ def handleLocation(u, l, bot):
             bot.sendMessage(r.chat_id, 'New guy appear and he/she wants to ride!\n'+u.tagName())
 
 
-def twoStepCommandHandler(bot, u, text):
+def twoStepCommandHandler(bot, s, u, text):
     if u.prev_command == '/set_radius':
         # TODO: Some more checks
         try:
             r = float(text)
-            if r<1 or r>50:
+            if r < 1 or r > 50:
                 bot.sendMessage(u.chat_id, 'Please, select radius between 1 and 50 kilometers',
                                 reply_markup=u.unsettedParams())
                 return
